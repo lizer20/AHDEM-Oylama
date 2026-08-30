@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AHDEM Oylama — Yansıtma Ekranı</title>
+<meta name="theme-color" content="#12203A">
+<link rel="icon" href="logolar/favicon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="screen">
+
+<div class="s-wrap" id="ekran"></div>
+
+<script type="module">
+import {
+  CONFIG, $, esc, ensureAnonSession, getActivePoll, getLastClosedPoll,
+  getTally, getVoterCount, listen, pct, warnIfNotConfigured
+} from "./assets/app.js";
+
+const kok = $("#ekran");
+
+async function baslat() {
+  if (warnIfNotConfigured()) return;
+  await ensureAnonSession();
+  await ciz();
+  listen("ekran-polls", "polls", ciz);
+  listen("ekran-tally", "poll_tally", ciz);
+  listen("ekran-voters", "voters", ciz);
+  // Canlı bağlantı kopsa bile ekran donmasın:
+  setInterval(ciz, 15000);
+}
+
+function bas(icerik) {
+  kok.innerHTML = `
+    <div class="s-head">
+      <img src="logolar/logo-konferans-beyaz.png" alt="AHDEM">
+      <span class="brand">${esc(CONFIG.kurumAdi)} · ${esc(CONFIG.meclisAdi)}</span>
+      <span class="spacer"></span>
+      <span class="status" id="saat"></span>
+    </div>
+    ${icerik}`;
+  saatYaz();
+}
+
+function saatYaz() {
+  const el = $("#saat");
+  if (el) el.textContent = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+setInterval(saatYaz, 20000);
+
+async function ciz() {
+  let poll = await getActivePoll();
+  let acik = true;
+  if (!poll) { poll = await getLastClosedPoll(); acik = false; }
+
+  if (!poll) {
+    bas(`<div class="s-idle">
+            <div>
+              <p class="eyebrow">Oylama</p>
+              <h1>Genel Kurul oylamaya hazır</h1>
+            </div>
+          </div>`);
+    return;
+  }
+
+  const opts = poll.options;
+  const tally = await getTally(poll.id, opts.length);
+  const toplam = tally.reduce((a, b) => a + b, 0);
+  const kayitli = await getVoterCount();
+
+  // Gizli oylama sürerken sayılar perdede gizlenir, kapanınca açılır.
+  const gizle = poll.secret && acik;
+  const say = (n) => (gizle ? "—" : n);
+  const yuzde = (n) => (gizle ? "" : "%" + pct(n, toplam));
+  const genislik = (n) => (gizle ? 0 : pct(n, toplam));
+
+  bas(`
+    <div class="s-title">
+      <p class="eyebrow">
+        ${acik ? "Oylama sürüyor" : "Oylama kapandı"}${poll.secret ? " · Gizli oylama" : ""}
+      </p>
+      <h1>${esc(poll.title)}</h1>
+      ${poll.subtitle ? `<p class="sub">${esc(poll.subtitle)}</p>` : ""}
+    </div>
+
+    <div class="s-body ${gizle ? "masked" : ""}">
+      ${opts.map((o, i) => `
+        <div class="s-opt">
+          <div class="top">
+            <span class="name">${esc(o)}</span>
+            <span class="cnt">${say(tally[i])}</span>
+            <span class="pct">${yuzde(tally[i])}</span>
+          </div>
+          <div class="bar"><span style="width:${genislik(tally[i])}%"></span></div>
+        </div>`).join("")}
+    </div>
+
+    <div class="s-foot">
+      <span>${toplam} / ${kayitli} vekil oy kullandı</span>
+      <span>${acik ? "Oy kullanmak için: " + location.host : "Sonuç kesinleşti"}</span>
+    </div>`);
+}
+
+baslat();
+</script>
+</body>
+</html>

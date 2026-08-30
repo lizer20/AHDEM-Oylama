@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Divan Paneli — AHDEM Oylama</title>
+<meta name="theme-color" content="#F1ECE3">
+<link rel="icon" href="logolar/favicon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <img src="logolar/logo-konferans-lacivert.png" alt="AHDEM">
+  <span class="brand">Divan Paneli</span>
+  <span class="spacer"></span>
+  <span class="who" id="who"></span>
+</header>
+
+<!-- Giriş -->
+<section class="wrap narrow" id="view-login">
+  <p class="eyebrow">Yetkili giriş</p>
+  <h1>Divan paneli</h1>
+  <p class="sub">Oylamaları buradan oluşturur, açar ve kapatırsınız.</p>
+  <div class="card" style="margin-top:22px">
+    <div class="field">
+      <label for="mail">Hesap</label>
+      <input type="text" id="mail" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="sifre">Şifre</label>
+      <input type="password" id="sifre" autocomplete="current-password" enterkeyhint="go">
+    </div>
+    <button class="btn" id="btn-login">Giriş Yap</button>
+  </div>
+  <div id="login-hata"></div>
+</section>
+
+<!-- Panel -->
+<section class="wrap hidden" id="view-panel">
+
+  <!-- Aktif oylama -->
+  <div id="aktif"></div>
+
+  <!-- Yeni oylama -->
+  <div class="card">
+    <h2>Yeni oylama</h2>
+    <div class="field">
+      <label for="konu">Konu <span class="muted">(ekranın en üstünde yazacak)</span></label>
+      <input type="text" id="konu" placeholder="Örn. 12 sıra sayılı kanun teklifinin tümü">
+    </div>
+    <div class="field">
+      <label for="altbaslik">Alt açıklama <span class="muted">(isteğe bağlı)</span></label>
+      <input type="text" id="altbaslik" placeholder="Örn. Komisyon metni üzerinde oylama">
+    </div>
+
+    <div class="field">
+      <label>Seçenekler</label>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn ghost sm" data-sablon="Kabul|Ret|Çekimser">Kabul / Ret / Çekimser</button>
+        <button class="btn ghost sm" data-sablon="Evet|Hayır">Evet / Hayır</button>
+        <button class="btn ghost sm" data-sablon="Kabul|Ret">Kabul / Ret</button>
+      </div>
+      <div id="secenekler"></div>
+      <button class="btn ghost sm" id="btn-secenek-ekle" style="margin-top:10px">+ Seçenek ekle</button>
+    </div>
+
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:9px;font-weight:500;text-transform:none">
+        <input type="checkbox" id="gizli" style="width:auto">
+        Gizli oylama <span class="muted">— kimin ne oy verdiği hiçbir yerde görünmez</span>
+      </label>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="btn-olustur-ac">Oluştur ve Aç</button>
+      <button class="btn ghost" id="btn-olustur">Taslak Olarak Kaydet</button>
+    </div>
+    <div id="olustur-hata" style="margin-top:12px"></div>
+  </div>
+
+  <!-- Geçmiş -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Oylamalar</h2>
+      <button class="btn ghost sm" id="btn-tum-excel">Tümünü Excel'e Aktar</button>
+    </div>
+    <div id="liste" style="margin-top:14px"></div>
+  </div>
+
+  <!-- Vekiller -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Salondaki vekiller (<span id="vekil-sayi">0</span>)</h2>
+      <button class="btn ghost sm" id="btn-vekil-excel">Excel'e Aktar</button>
+    </div>
+    <div class="scroll" style="margin-top:14px"><div id="vekiller"></div></div>
+  </div>
+
+</section>
+
+<script type="module">
+import {
+  sb, CONFIG, $, $$, esc, listen, pct, fmtDateTime,
+  getTally, getVoterCount, getParticipants, downloadExcelCsv, warnIfNotConfigured
+} from "./assets/app.js";
+
+let polls = [], voters = [];
+
+/* ---------- Giriş ---------- */
+
+$("#mail").value = CONFIG.adminEmail;
+
+async function baslat() {
+  if (warnIfNotConfigured()) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && !session.user.is_anonymous) { sb.realtime.setAuth(session.access_token); panelAc(); }
+}
+
+$("#btn-login").addEventListener("click", girisYap);
+$("#sifre").addEventListener("keydown", (e) => { if (e.key === "Enter") girisYap(); });
+
+async function girisYap() {
+  const btn = $("#btn-login");
+  btn.disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: $("#mail").value.trim(),
+    password: $("#sifre").value,
+  });
+  btn.disabled = false;
+  if (error) {
+    $("#login-hata").innerHTML = '<div class="note error">Giriş başarısız: ' + esc(error.message) + "</div>";
+    return;
+  }
+  sb.realtime.setAuth(data.session.access_token);
+  panelAc();
+}
+
+function panelAc() {
+  $("#view-login").classList.add("hidden");
+  $("#view-panel").classList.remove("hidden");
+  $("#who").innerHTML = "Divan<br><a href='#' id='cikis' class='muted'>çıkış</a>";
+  $("#cikis").addEventListener("click", async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    location.reload();
+  });
+  secenekAlaniKur();
+  tazele();
+  listen("divan-polls", "polls", tazele);
+  listen("divan-tally", "poll_tally", tazele);
+  listen("divan-voters", "voters", tazele);
+  listen("divan-votes", "votes", tazele);
+}
+
+/* ---------- Seçenek alanı ---------- */
+
+function secenekSatiri(deger = "") {
+  const d = document.createElement("div");
+  d.className = "row";
+  d.style.marginBottom = "8px";
+  d.innerHTML = `<input type="text" class="sec" value="${esc(deger)}" placeholder="Seçenek" style="flex:1">
+                 <button class="btn ghost sm sil">Sil</button>`;
+  d.querySelector(".sil").addEventListener("click", () => {
+    if ($$(".sec").length > 2) d.remove();
+  });
+  return d;
+}
+
+function secenekAlaniKur(liste = ["Kabul", "Ret", "Çekimser"]) {
+  const k = $("#secenekler");
+  k.innerHTML = "";
+  liste.forEach((v) => k.appendChild(secenekSatiri(v)));
+}
+
+$("#btn-secenek-ekle").addEventListener("click", () =>
+  $("#secenekler").appendChild(secenekSatiri())
+);
+
+$$("[data-sablon]").forEach((b) =>
+  b.addEventListener("click", () => secenekAlaniKur(b.dataset.sablon.split("|")))
+);
+
+/* ---------- Oylama oluşturma ---------- */
+
+$("#btn-olustur").addEventListener("click", () => olustur(false));
+$("#btn-olustur-ac").addEventListener("click", () => olustur(true));
+
+async function olustur(hemenAc) {
+  const hata = $("#olustur-hata");
+  hata.innerHTML = "";
+  const title = $("#konu").value.trim();
+  const options = $$(".sec").map((i) => i.value.trim()).filter(Boolean);
+
+  if (!title) { hata.innerHTML = '<div class="note error">Konu boş olamaz.</div>'; return; }
+  if (options.length < 2) { hata.innerHTML = '<div class="note error">En az iki seçenek gerekli.</div>'; return; }
+
+  const kayit = {
+    title,
+    subtitle: $("#altbaslik").value.trim() || null,
+    options,
+    secret: $("#gizli").checked,
+    status: "draft",
+  };
+
+  const { data, error } = await sb.from("polls").insert(kayit).select().single();
+  if (error) { hata.innerHTML = '<div class="note error">' + esc(error.message) + "</div>"; return; }
+
+  $("#konu").value = "";
+  $("#altbaslik").value = "";
+  $("#gizli").checked = false;
+  secenekAlaniKur();
+
+  if (hemenAc) await oylamaAc(data.id);
+  else tazele();
+}
+
+/* ---------- Aç / kapat / sil ---------- */
+
+async function oylamaAc(id) {
+  // Aynı anda tek oylama açık kalır.
+  await sb.from("polls").update({ status: "closed", closed_at: new Date().toISOString() }).eq("status", "open");
+  await sb.from("polls").update({ status: "open", opened_at: new Date().toISOString(), closed_at: null }).eq("id", id);
+  tazele();
+}
+
+async function oylamaKapat(id) {
+  await sb.from("polls").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", id);
+  tazele();
+}
+
+async function oylamaSil(id, baslik) {
+  if (!confirm(`"${baslik}" oylaması ve tüm oyları kalıcı olarak silinecek. Emin misiniz?`)) return;
+  await sb.from("polls").delete().eq("id", id);
+  tazele();
+}
+
+async function vekilSil(id, ad) {
+  if (!confirm(`${ad} salondan çıkarılacak ve verdiği oylar silinecek. Emin misiniz?`)) return;
+  await sb.from("voters").delete().eq("id", id);
+  tazele();
+}
+
+/* ---------- Ekranı yenile ---------- */
+
+async function tazele() {
+  const [{ data: p }, { data: v }] = await Promise.all([
+    sb.from("polls").select("*").order("created_at", { ascending: false }),
+    sb.from("voters").select("*").order("created_at", { ascending: true }),
+  ]);
+  polls = p ?? [];
+  voters = v ?? [];
+
+  await aktifCiz();
+  listeCiz();
+  vekilCiz();
+}
+
+async function aktifCiz() {
+  const kok = $("#aktif");
+  const poll = polls.find((x) => x.status === "open");
+
+  if (!poll) {
+    kok.innerHTML = `<div class="note">Şu anda açık oylama yok. Aşağıdan yeni bir oylama oluşturun
+                     veya listeden bir taslağı açın.</div>`;
+    return;
+  }
+
+  const tally = await getTally(poll.id, poll.options.length);
+  const toplam = tally.reduce((a, b) => a + b, 0);
+  const katilanlar = await getParticipants(poll.id);
+  const katilanId = new Set(katilanlar.map((k) => k.voter_id));
+  const eksik = voters.filter((v) => !katilanId.has(v.id));
+
+  let kimNeVerdi = "";
+  if (!poll.secret) {
+    const { data: oylar } = await sb
+      .from("votes").select("voter_id, option_index").eq("poll_id", poll.id);
+    const harita = new Map((oylar ?? []).map((o) => [o.voter_id, o.option_index]));
+    kimNeVerdi = `
+      <h2 style="margin-top:22px">Kim ne oy verdi</h2>
+      <div class="scroll"><table>
+        <tr><th>Vekil</th><th>Oy</th></tr>
+        ${katilanlar.map((k) => `<tr><td>${esc(k.full_name)}</td>
+           <td>${esc(poll.options[harita.get(k.voter_id)] ?? "—")}</td></tr>`).join("")}
+      </table></div>`;
+  }
+
+  kok.innerHTML = `
+    <div class="card" style="border-color:var(--gold)">
+      <div class="row" style="justify-content:space-between">
+        <span class="tag open">Açık</span>
+        ${poll.secret ? '<span class="tag secret">Gizli oylama</span>' : ""}
+      </div>
+      <h1 style="margin-top:12px">${esc(poll.title)}</h1>
+      ${poll.subtitle ? `<p class="sub">${esc(poll.subtitle)}</p>` : ""}
+
+      <div class="tally" style="margin-top:20px">
+        ${poll.options.map((o, i) => `
+          <div class="tally-row">
+            <div class="tally-head"><span>${esc(o)}</span>
+              <span class="n">${tally[i]} oy · %${pct(tally[i], toplam)}</span></div>
+            <div class="bar"><span style="width:${pct(tally[i], toplam)}%"></span></div>
+          </div>`).join("")}
+      </div>
+
+      <p class="muted" style="margin-top:14px">
+        ${toplam} / ${voters.length} vekil oy kullandı${eksik.length ? " · oy kullanmayanlar: " + esc(eksik.map((e) => e.full_name).join(", ")) : ""}
+      </p>
+
+      <hr class="rule">
+      <div class="row">
+        <button class="btn dark" id="btn-kapat">Oylamayı Kapat</button>
+        <button class="btn ghost sm" id="btn-excel">Bu Oylamayı Excel'e Aktar</button>
+      </div>
+      ${kimNeVerdi}
+    </div>`;
+
+  $("#btn-kapat").addEventListener("click", () => oylamaKapat(poll.id));
+  $("#btn-excel").addEventListener("click", () => pollExcel(poll));
+}
+
+function listeCiz() {
+  const kok = $("#liste");
+  if (!polls.length) { kok.innerHTML = '<p class="muted">Henüz oylama oluşturulmadı.</p>'; return; }
+
+  kok.innerHTML = `<table>
+    <tr><th>Konu</th><th>Durum</th><th>Tarih</th><th></th></tr>
+    ${polls.map((p) => `
+      <tr>
+        <td>${esc(p.title)} ${p.secret ? '<span class="tag secret">Gizli</span>' : ""}</td>
+        <td><span class="tag ${p.status === "open" ? "open" : p.status === "closed" ? "closed" : ""}">
+            ${p.status === "open" ? "Açık" : p.status === "closed" ? "Kapandı" : "Taslak"}</span></td>
+        <td class="num">${fmtDateTime(p.opened_at ?? p.created_at)}</td>
+        <td>
+          <div class="row">
+            ${p.status !== "open" ? `<button class="btn ghost sm" data-ac="${p.id}">Aç</button>` : ""}
+            <button class="btn ghost sm" data-xls="${p.id}">Excel</button>
+            <button class="btn danger sm" data-sil="${p.id}">Sil</button>
+          </div>
+        </td>
+      </tr>`).join("")}
+  </table>`;
+
+  $$("[data-ac]", kok).forEach((b) => b.addEventListener("click", () => {
+    if (confirm("Bu oylama açılacak, varsa açık olan diğer oylama kapanacak. Devam edilsin mi?"))
+      oylamaAc(b.dataset.ac);
+  }));
+  $$("[data-xls]", kok).forEach((b) => b.addEventListener("click", () =>
+    pollExcel(polls.find((p) => p.id === b.dataset.xls))));
+  $$("[data-sil]", kok).forEach((b) => b.addEventListener("click", () => {
+    const p = polls.find((x) => x.id === b.dataset.sil);
+    oylamaSil(p.id, p.title);
+  }));
+}
+
+function vekilCiz() {
+  $("#vekil-sayi").textContent = voters.length;
+  const kok = $("#vekiller");
+  if (!voters.length) { kok.innerHTML = '<p class="muted" style="padding:12px">Henüz salona giren yok.</p>'; return; }
+
+  kok.innerHTML = `<table>
+    <tr><th>Ad Soyad</th><th>Giriş</th><th></th></tr>
+    ${voters.map((v) => `<tr>
+      <td>${esc(v.full_name)}</td>
+      <td class="num">${fmtDateTime(v.created_at)}</td>
+      <td><button class="btn danger sm" data-vsil="${v.id}">Çıkar</button></td>
+    </tr>`).join("")}
+  </table>`;
+
+  $$("[data-vsil]", kok).forEach((b) => b.addEventListener("click", () => {
+    const v = voters.find((x) => x.id === b.dataset.vsil);
+    vekilSil(v.id, v.full_name);
+  }));
+}
+
+/* ---------- Excel aktarımı ---------- */
+
+async function pollExcel(poll) {
+  const tally = await getTally(poll.id, poll.options.length);
+  const toplam = tally.reduce((a, b) => a + b, 0);
+  const katilanlar = await getParticipants(poll.id);
+
+  const rows = [
+    ["AHDEM — Oylama Tutanağı"],
+    ["Konu", poll.title],
+    ["Alt açıklama", poll.subtitle ?? ""],
+    ["Oylama türü", poll.secret ? "Gizli" : "Açık"],
+    ["Açılış", fmtDateTime(poll.opened_at)],
+    ["Kapanış", fmtDateTime(poll.closed_at)],
+    ["Kayıtlı vekil", voters.length],
+    ["Oy kullanan", toplam],
+    [],
+    ["Seçenek", "Oy", "Yüzde"],
+    ...poll.options.map((o, i) => [o, tally[i], "%" + pct(tally[i], toplam)]),
+    [],
+  ];
+
+  if (poll.secret) {
+    rows.push(["Oy kullanan vekiller (gizli oylama — tercihler kayıtlı değildir)"]);
+    rows.push(["Ad Soyad", "Saat"]);
+    katilanlar.forEach((k) => rows.push([k.full_name, fmtDateTime(k.updated_at)]));
+  } else {
+    const { data: oylar } = await sb.from("votes").select("voter_id, option_index").eq("poll_id", poll.id);
+    const harita = new Map((oylar ?? []).map((o) => [o.voter_id, o.option_index]));
+    rows.push(["Kim ne oy verdi"]);
+    rows.push(["Ad Soyad", "Oy", "Saat"]);
+    katilanlar.forEach((k) =>
+      rows.push([k.full_name, poll.options[harita.get(k.voter_id)] ?? "—", fmtDateTime(k.updated_at)]));
+  }
+
+  const katilanId = new Set(katilanlar.map((k) => k.voter_id));
+  const eksik = voters.filter((v) => !katilanId.has(v.id));
+  if (eksik.length) {
+    rows.push([]);
+    rows.push(["Oy kullanmayanlar"]);
+    eksik.forEach((v) => rows.push([v.full_name]));
+  }
+
+  downloadExcelCsv(dosyaAdi(poll.title) + ".csv", rows);
+}
+
+$("#btn-tum-excel").addEventListener("click", async () => {
+  const rows = [["AHDEM — Tüm Oylamalar"], [], ["Konu", "Tür", "Durum", "Açılış", "Kapanış", "Oy kullanan", "Sonuçlar"]];
+  for (const p of [...polls].reverse()) {
+    const tally = await getTally(p.id, p.options.length);
+    rows.push([
+      p.title,
+      p.secret ? "Gizli" : "Açık",
+      p.status === "open" ? "Açık" : p.status === "closed" ? "Kapandı" : "Taslak",
+      fmtDateTime(p.opened_at),
+      fmtDateTime(p.closed_at),
+      tally.reduce((a, b) => a + b, 0),
+      p.options.map((o, i) => `${o}: ${tally[i]}`).join(" | "),
+    ]);
+  }
+  downloadExcelCsv("ahdem-tum-oylamalar.csv", rows);
+});
+
+$("#btn-vekil-excel").addEventListener("click", () => {
+  downloadExcelCsv("ahdem-vekil-listesi.csv", [
+    ["AHDEM — Salondaki Vekiller"], [], ["Ad Soyad", "Giriş"],
+    ...voters.map((v) => [v.full_name, fmtDateTime(v.created_at)]),
+  ]);
+});
+
+function dosyaAdi(s) {
+  return "ahdem-" + s.toLocaleLowerCase("tr")
+    .replace(/[ıİ]/g, "i").replace(/[şŞ]/g, "s").replace(/[ğĞ]/g, "g")
+    .replace(/[üÜ]/g, "u").replace(/[öÖ]/g, "o").replace(/[çÇ]/g, "c")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+}
+
+baslat();
+</script>
+</body>
+</html>

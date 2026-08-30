@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AHDEM Oylama</title>
+<meta name="theme-color" content="#F1ECE3">
+<link rel="icon" href="logolar/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="logolar/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <img src="logolar/logo-konferans-lacivert.png" alt="AHDEM">
+  <span class="brand">Oylama</span>
+  <span class="spacer"></span>
+  <span class="who" id="who"></span>
+</header>
+
+<!-- 1) İsim girişi -->
+<section class="wrap narrow" id="view-giris">
+  <p class="eyebrow">Genel Kurul</p>
+  <h1>Salona giriş</h1>
+  <p class="sub">Oy kullanabilmek için adınızı ve soyadınızı yazın.</p>
+
+  <div class="card" style="margin-top:22px">
+    <div class="field">
+      <label for="ad">Ad ve soyad</label>
+      <input type="text" id="ad" autocomplete="name" autocapitalize="words"
+             placeholder="Örn. Ayşe Yılmaz" enterkeyhint="go">
+    </div>
+    <button class="btn" id="btn-gir">Salona Gir</button>
+    <p class="muted" style="margin:14px 0 0">
+      Adınız yoklama listesinde görünür. Her isim yalnızca bir kez oy kullanabilir.
+    </p>
+  </div>
+  <div id="giris-hata"></div>
+</section>
+
+<!-- 2) Oylama -->
+<section class="wrap hidden" id="view-oylama">
+  <div id="oylama-icerik"></div>
+</section>
+
+<script type="module">
+import {
+  sb, $, esc, ensureAnonSession, normalizeName, titleCase,
+  getActivePoll, getTally, getVoterCount, listen, pct, warnIfNotConfigured
+} from "./assets/app.js";
+
+let me = null;        // voters satırım
+let poll = null;      // açık oylama
+let myVote = null;    // seçtiğim option_index
+let busy = false;
+
+const viewGiris = $("#view-giris");
+const viewOylama = $("#view-oylama");
+
+async function baslat() {
+  if (warnIfNotConfigured()) return;
+  await ensureAnonSession();
+
+  const { data: { user } } = await sb.auth.getUser();
+  const { data } = await sb.from("voters").select("*").eq("id", user.id).maybeSingle();
+  me = data ?? null;
+
+  if (me) girisTamam();
+
+  listen("vekil-polls", "polls", tazele);
+  listen("vekil-tally", "poll_tally", tazele);
+}
+
+/* ---------- İsim girişi ---------- */
+
+$("#btn-gir").addEventListener("click", girisYap);
+$("#ad").addEventListener("keydown", (e) => { if (e.key === "Enter") girisYap(); });
+
+async function girisYap() {
+  if (busy) return;
+  const ham = $("#ad").value;
+  const key = normalizeName(ham);
+  const hata = $("#giris-hata");
+  hata.innerHTML = "";
+
+  if (key.split(" ").filter(Boolean).length < 2) {
+    hata.innerHTML = '<div class="note error">Lütfen hem adınızı hem soyadınızı yazın.</div>';
+    return;
+  }
+
+  busy = true;
+  $("#btn-gir").disabled = true;
+  const { data: { user } } = await sb.auth.getUser();
+  const { data, error } = await sb
+    .from("voters")
+    .insert({ id: user.id, full_name: titleCase(ham), name_key: key })
+    .select()
+    .single();
+  busy = false;
+  $("#btn-gir").disabled = false;
+
+  if (error) {
+    hata.innerHTML = error.code === "23505"
+      ? '<div class="note error">Bu isim salonda zaten kayıtlı. Yanlışlıkla olduysa divandan kaydınızın silinmesini isteyin.</div>'
+      : '<div class="note error">Kayıt yapılamadı: ' + esc(error.message) + "</div>";
+    return;
+  }
+  me = data;
+  girisTamam();
+}
+
+function girisTamam() {
+  viewGiris.classList.add("hidden");
+  viewOylama.classList.remove("hidden");
+  $("#who").innerHTML = esc(me.full_name) + "<br><span class='muted'>salonda</span>";
+  tazele();
+}
+
+/* ---------- Oylama ekranı ---------- */
+
+async function tazele() {
+  if (!me) return;
+  poll = await getActivePoll();
+
+  if (!poll) {
+    myVote = null;
+    viewOylama.innerHTML = `
+      <div class="waiting">
+        <p class="eyebrow"><span class="dot"></span>Bekleniyor</p>
+        <h1>Şu anda açık bir oylama yok</h1>
+        <p class="sub">Divan oylamayı açtığında bu ekran kendiliğinden güncellenecek.</p>
+      </div>`;
+    return;
+  }
+
+  const { data: oy } = await sb
+    .from("votes").select("option_index")
+    .eq("poll_id", poll.id).eq("voter_id", me.id).maybeSingle();
+  myVote = oy ? oy.option_index : null;
+
+  ciz();
+}
+
+async function ciz() {
+  const opts = poll.options;
+  const verdim = myVote !== null;
+
+  let sonucHtml = "";
+  if (verdim) {
+    const tally = await getTally(poll.id, opts.length);
+    const toplam = tally.reduce((a, b) => a + b, 0);
+    const kayitli = await getVoterCount();
+    sonucHtml = `
+      <hr class="rule">
+      <h2>Canlı sonuç</h2>
+      <div class="tally">
+        ${opts.map((o, i) => `
+          <div class="tally-row">
+            <div class="tally-head">
+              <span>${esc(o)}</span>
+              <span class="n">${tally[i]} oy · %${pct(tally[i], toplam)}</span>
+            </div>
+            <div class="bar"><span style="width:${pct(tally[i], toplam)}%"></span></div>
+          </div>`).join("")}
+      </div>
+      <p class="muted" style="margin-top:14px">
+        ${toplam} / ${kayitli} vekil oy kullandı${poll.secret ? " · gizli oylama" : ""}
+      </p>`;
+  }
+
+  viewOylama.innerHTML = `
+    <p class="eyebrow">${poll.secret ? "Gizli oylama" : "Açık oylama"}</p>
+    <h1>${esc(poll.title)}</h1>
+    ${poll.subtitle ? `<p class="sub">${esc(poll.subtitle)}</p>` : ""}
+
+    <div class="options">
+      ${opts.map((o, i) => `
+        <button class="option ${myVote === i ? "selected" : ""}" data-i="${i}">
+          <span class="mark">&#10003;</span>
+          <span class="label">${esc(o)}</span>
+        </button>`).join("")}
+    </div>
+
+    <div class="note ${verdim ? "ok" : ""}" style="margin-top:18px">
+      ${verdim
+        ? "Oyunuz kaydedildi. Oylama kapanana kadar değiştirebilirsiniz."
+        : "Bir seçeneğe dokunarak oyunuzu kullanın."}
+    </div>
+
+    ${sonucHtml}`;
+
+  viewOylama.querySelectorAll(".option").forEach((b) =>
+    b.addEventListener("click", () => oyVer(Number(b.dataset.i)))
+  );
+}
+
+async function oyVer(i) {
+  if (busy || !poll) return;
+  busy = true;
+  viewOylama.querySelectorAll(".option").forEach((b) => (b.disabled = true));
+
+  const { error } = await sb.from("votes").upsert(
+    { poll_id: poll.id, voter_id: me.id, option_index: i },
+    { onConflict: "poll_id,voter_id" }
+  );
+  busy = false;
+
+  if (error) {
+    alert("Oy kaydedilemedi: " + error.message + "\nOylama kapanmış olabilir.");
+    tazele();
+    return;
+  }
+  myVote = i;
+  ciz();
+}
+
+baslat();
+</script>
+</body>
+</html>

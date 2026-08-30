@@ -1,0 +1,307 @@
+/* ============================================================
+   AHDEM Oylama — ortak stil
+   Renkler ahdem.online ile birebir aynıdır.
+   ============================================================ */
+
+:root {
+  --ink: #12203A;
+  --ink-2: #1A2C4B;
+  --ink-soft: #2E4260;
+  --paper: #FAF7F1;
+  --paper-2: #F1ECE3;
+  --gold: #B8862F;
+  --gold-soft: #E8D5AC;
+  --line: #D9D1C4;
+  --line-2: #E6E0D5;
+  --muted: #6B7A90;
+  --ok: #2F6B45;
+  --no: #8E3B32;
+  --maxw: 1100px;
+  --r: 3px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--ink); }
+
+/* ---------- Üst şerit ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar img { height: 34px; width: auto; display: block; }
+.topbar .brand {
+  font-weight: 600;
+  letter-spacing: .14em;
+  font-size: .78rem;
+  text-transform: uppercase;
+}
+.topbar .spacer { flex: 1; }
+.topbar .who {
+  font-size: .82rem;
+  color: var(--ink-soft);
+  text-align: right;
+  line-height: 1.3;
+}
+
+/* ---------- Genel yerleşim ---------- */
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 28px 20px 64px; }
+.narrow { max-width: 620px; }
+
+.eyebrow {
+  font-size: .7rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+h1 { font-size: clamp(1.5rem, 4.2vw, 2.3rem); line-height: 1.22; font-weight: 600; margin: 0 0 8px; }
+h2 { font-size: 1.15rem; font-weight: 600; margin: 0 0 12px; }
+.sub { color: var(--ink-soft); margin: 0 0 4px; }
+.muted { color: var(--muted); font-size: .88rem; }
+
+.rule { height: 1px; background: var(--line); border: 0; margin: 26px 0; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+/* ---------- Form ---------- */
+
+label { display: block; font-size: .82rem; font-weight: 600; margin: 0 0 6px; color: var(--ink-soft); }
+
+input[type=text], input[type=password], textarea, select {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 12px 14px;
+}
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--gold-soft);
+  border-color: var(--gold);
+}
+
+.field { margin-bottom: 16px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--gold);
+  color: #fff;
+  border: 1px solid var(--gold);
+  border-radius: var(--r);
+  padding: 12px 22px;
+}
+.btn:hover { background: #a4761f; border-color: #a4761f; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.ghost:hover { background: var(--paper-2); }
+.btn.dark { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn.dark:hover { background: var(--ink-2); }
+.btn.sm { padding: 7px 13px; font-size: .84rem; }
+.btn.danger { background: transparent; color: var(--no); border-color: var(--no); }
+.btn.danger:hover { background: var(--no); color: #fff; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+.note {
+  border-left: 3px solid var(--gold);
+  background: var(--paper-2);
+  padding: 12px 14px;
+  border-radius: var(--r);
+  font-size: .88rem;
+}
+.note.error { border-left-color: var(--no); color: var(--no); background: #fdf3f2; }
+.note.ok { border-left-color: var(--ok); color: var(--ok); background: #f2f8f4; }
+
+.hidden { display: none !important; }
+
+/* ---------- Oy seçenekleri (vekil ekranı) ---------- */
+
+.options { display: grid; gap: 12px; margin-top: 22px; }
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 20px 22px;
+  transition: border-color .12s, background .12s;
+}
+.option:hover:not(:disabled) { border-color: var(--gold); background: #fffdf8; }
+.option:disabled { cursor: not-allowed; }
+
+.option .mark {
+  flex: none;
+  width: 26px; height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: .8rem;
+  color: transparent;
+}
+.option.selected { border-color: var(--gold); background: #fdf8ee; }
+.option.selected .mark { background: var(--gold); border-color: var(--gold); color: #fff; }
+.option .label { flex: 1; }
+
+/* ---------- Sonuç çubukları ---------- */
+
+.tally { display: grid; gap: 10px; }
+.tally-row { display: grid; gap: 5px; }
+.tally-head { display: flex; justify-content: space-between; font-size: .9rem; }
+.tally-head .n { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.bar { height: 9px; background: var(--paper-2); border-radius: 999px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--gold); width: 0; transition: width .35s ease; }
+
+/* ---------- Etiketler ---------- */
+
+.tag {
+  display: inline-block;
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  background: var(--paper-2);
+}
+.tag.open { border-color: var(--ok); color: var(--ok); background: #f2f8f4; }
+.tag.closed { border-color: var(--line); color: var(--muted); }
+.tag.secret { border-color: var(--gold); color: var(--gold); background: #fdf8ee; }
+
+/* ---------- Tablo ---------- */
+
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-2); }
+th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { font-variant-numeric: tabular-nums; }
+.scroll { max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); }
+
+/* ---------- Bekleme ekranı ---------- */
+
+.waiting { text-align: center; padding: 60px 20px; }
+.waiting .dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--gold);
+  display: inline-block; margin-right: 8px;
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+
+/* ============================================================
+   YANSITMA EKRANI — koyu tema (projeksiyonda en okunaklı hali)
+   ============================================================ */
+
+body.screen {
+  background: var(--ink);
+  color: var(--paper);
+  height: 100vh;
+  overflow: hidden;
+}
+.screen .s-wrap {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 3vh 4vw;
+}
+.screen .s-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid rgba(232, 213, 172, .25);
+  padding-bottom: 2vh;
+}
+.screen .s-head img { height: 7vh; max-height: 74px; }
+.screen .s-head .brand {
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-size: 1.1vw;
+  font-weight: 600;
+  color: var(--gold-soft);
+}
+.screen .s-head .spacer { flex: 1; }
+.screen .s-head .status { font-size: 1.5vw; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+
+.screen .s-title { margin: 4vh 0 1vh; }
+.screen .s-title .eyebrow { color: var(--gold-soft); font-size: 1vw; }
+.screen .s-title h1 {
+  font-size: clamp(28px, 3.6vw, 68px);
+  line-height: 1.16;
+  color: #fff;
+  margin: 0;
+}
+.screen .s-title .sub { color: var(--gold-soft); font-size: 1.4vw; margin-top: 1vh; }
+
+.screen .s-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.4vh; }
+
+.screen .s-opt { display: grid; gap: .9vh; }
+.screen .s-opt .top { display: flex; align-items: baseline; gap: 14px; }
+.screen .s-opt .name { font-size: 2.2vw; font-weight: 500; flex: 1; }
+.screen .s-opt .cnt { font-size: 3vw; font-weight: 600; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+.screen .s-opt .pct { font-size: 1.4vw; color: rgba(250, 247, 241, .6); width: 5vw; text-align: right; }
+.screen .s-opt .bar { height: 1.8vh; background: rgba(250, 247, 241, .1); border-radius: 999px; }
+.screen .s-opt .bar > span { background: var(--gold); }
+
+.screen .s-foot {
+  border-top: 1px solid rgba(232, 213, 172, .25);
+  padding-top: 2vh;
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.3vw;
+  color: var(--gold-soft);
+}
+
+.screen .s-idle { flex: 1; display: grid; place-items: center; text-align: center; }
+.screen .s-idle h1 { font-size: 3vw; color: var(--gold-soft); font-weight: 500; }
+
+/* Gizli oylama sürerken sayılar saklanır */
+.screen .masked .cnt, .screen .masked .pct { color: rgba(250, 247, 241, .3); }
+
+@media (max-width: 640px) {
+  .wrap { padding: 22px 16px 56px; }
+  .option { font-size: 1.05rem; padding: 18px; }
+}
