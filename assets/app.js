@@ -15,12 +15,23 @@ export function configReady() {
   );
 }
 
+// Divan oturumu ile vekil oturumu ayrı kutularda tutulur.
+// Aksi halde aynı tarayıcıda divan şifresiyle giriş yapmak, o tarayıcıdaki
+// vekil kimliğini siler; ya da divan hesabı yanlışlıkla vekil olarak kaydolur.
+const ROL = location.pathname.endsWith("divan.html") ? "divan" : "vekil";
+
 // Ayarlar boşken de sayfa açılabilsin diye geçici adres kullanılır;
 // bu durumda ekrana "kurulum tamamlanmamış" uyarısı basılır.
 export const sb = createClient(
   configReady() ? CONFIG.supabaseUrl : "https://kurulmadi.supabase.co",
   configReady() ? CONFIG.supabaseAnonKey : "kurulmadi",
-  { auth: { persistSession: true, autoRefreshToken: true } }
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: "ahdem-oylama-" + ROL,
+    },
+  }
 );
 
 export const $ = (s, root = document) => root.querySelector(s);
