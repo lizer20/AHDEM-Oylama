@@ -45,12 +45,31 @@ giremez.
 * **Authentication** → **Rate Limits** → *Rate limit for anonymous users*
   değerini **500** (veya daha yüksek) yap ve kaydet.
 
-### 5. Divan hesabını oluştur
+### 5. Divan hesabını oluştur ve yetkilendir
 
 1. **Authentication** → **Users** → **Add user** → **Create new user**.
 2. E-posta: `divan@ahdem.online` (istediğin bir adres olabilir).
 3. Güçlü bir şifre yaz — divana girecek herkes bu tek şifreyi kullanacak.
 4. **Auto Confirm User** kutusunu **işaretle**.
+
+**Sonra yetkiyi ver.** Hesabı açmak tek başına divan yetkisi vermez; kullanıcının
+`admins` tablosuna eklenmesi gerekir. **SQL Editor**'e dön ve şunu çalıştır:
+
+```sql
+insert into public.admins (user_id, note)
+  select id, 'divan' from auth.users where email = 'divan@ahdem.online'
+  on conflict (user_id) do nothing;
+
+select u.email from public.admins a join auth.users u on u.id = a.user_id;
+```
+
+İkinci sorgu divan adresini döndürmeli. Boş dönerse e-posta adresi eşleşmiyordur.
+
+> **Neden böyle?** Yetki, oturumun türüne değil kişiye bağlıdır. "Anonim olmayan
+> herkes divandır" denseydi, projede e-posta kaydı açık olduğu için dışarıdan
+> hesap açan biri divan yetkisi kazanır; oylama açıp kapatabilir, vekilleri ve
+> oyları silebilirdi. `admins` tablosu bunu engeller — kayıtlar açık kalsa bile
+> yeni bir hesabın hiçbir yetkisi olmaz.
 
 ### 6. Anahtarları siteye gir
 

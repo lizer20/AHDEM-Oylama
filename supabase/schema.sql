@@ -52,13 +52,31 @@ create table if not exists public.poll_tally (
 alter table public.poll_tally replica identity full;
 alter table public.votes      replica identity full;
 
--- ---------- Yardımcı fonksiyonlar ----------
+-- ---------- Divan yetkisi ----------
 
--- Divan (şifreyle giren gerçek kullanıcı) mı, yoksa anonim vekil mi?
+-- Divan yetkisi olan kullanıcılar YALNIZCA bu tabloda tutulur.
+--
+-- DİKKAT — burada "anonim değilse divandır" DENMEZ. Denseydi, e-posta ile
+-- hesap açan herhangi biri divan yetkisi kazanırdı: oylama açıp kapatabilir,
+-- vekilleri ve oyları silebilirdi. Yetki kişiye bağlıdır, oturum türüne değil.
+--
+-- Tabloda RLS açık ve hiçbir politika yok; ayrıca yetkiler geri alınmıştır.
+-- Yani istemci tarafından ne okunur ne yazılır. Sadece aşağıdaki
+-- security definer fonksiyon okuyabilir.
+create table if not exists public.admins (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  note       text,
+  created_at timestamptz not null default now()
+);
+alter table public.admins enable row level security;
+revoke all on public.admins from anon, authenticated;
+
 create or replace function public.is_admin() returns boolean
-language sql stable as $fn$
-  select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, true) = false
+language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.admins where user_id = auth.uid())
 $fn$;
+
+-- ---------- Yardımcı fonksiyonlar ----------
 
 -- Oy eklendikçe / değiştikçe sayacı güncelle
 create or replace function public.sync_tally() returns trigger
@@ -122,7 +140,12 @@ with (security_invoker = false) as
   from public.votes v
   join public.voters o on o.id = v.voter_id;
 
-grant select on public.poll_participants to anon, authenticated;
+-- Bu görünüm RLS'i bypass eder (security_invoker = false). Bu yüzden yalnızca
+-- salona girmiş (oturum açmış) kullanıcılara verilir. "anon" rolüne verilseydi,
+-- publishable anahtarı bilen herkes giriş bile yapmadan katılımcı listesini
+-- okuyabilirdi.
+revoke select on public.poll_participants from anon;
+grant  select on public.poll_participants to authenticated;
 
 -- ---------- Güvenlik (RLS) ----------
 
@@ -180,3 +203,20 @@ begin
   begin execute 'alter publication supabase_realtime add table public.voters';     exception when duplicate_object then null; end;
   begin execute 'alter publication supabase_realtime add table public.votes';      exception when duplicate_object then null; end;
 end $blk$;
+
+-- ---------- Divan hesabını yetkilendir ----------
+--
+-- Bu adım, Authentication > Users içinde divan hesabı OLUŞTURULDUKTAN SONRA
+-- çalışır. Hesap henüz yoksa hiçbir şey eklemez, hata da vermez — hesabı
+-- açtıktan sonra bu bloğu tek başına tekrar çalıştırman yeterlidir.
+--
+-- E-posta adresini değiştirdiysen aşağıdaki adresi de değiştir.
+-- İkinci bir divan hesabı eklemek istersen yine bu bloğu kullan.
+
+insert into public.admins (user_id, note)
+  select id, 'divan' from auth.users where email = 'divan@ahdem.online'
+  on conflict (user_id) do nothing;
+
+-- Kontrol: kaç divan hesabı yetkili? Boş dönerse hesap henüz oluşturulmamıştır.
+select u.email, a.note, a.created_at
+  from public.admins a join auth.users u on u.id = a.user_id;
