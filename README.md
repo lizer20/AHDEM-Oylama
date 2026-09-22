@@ -134,6 +134,9 @@ Bir iki dakika içinde `https://KULLANICI.github.io/DEPO/` adresinde yayına gir
   gizlemekle değil, veritabanı kurallarıyla (RLS) sağlanır. Yalnızca toplam
   sayılar ve "kimin oy kullandığı" (yoklama) görünür.
 * **Açık oylama:** Kimin ne oy verdiği divan panelinde ve tutanakta görünür.
+* **Sonuçların görünümü:** Sonuç yalnızca perdede ve divan panelinde, halka
+  grafik ve sayılarla gösterilir. Vekil telefonları sonucu göstermez ve oy
+  sayacını dinlemez; bu, Supabase'in aylık canlı mesaj kotasını da korur.
 * **Karar:** Sistem çoğunluk hesabı yapmaz, yalnızca sayıları ve yüzdeleri
   gösterir. Kararı başkan ilan eder.
 
