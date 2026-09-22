@@ -104,7 +104,7 @@
 
 <script type="module">
 import {
-  sb, CONFIG, $, $$, esc, listen, pct, fmtDateTime,
+  sb, CONFIG, $, $$, esc, listen, pct, fmtDateTime, sonucHtml, pastaEtkilesim,
   getTally, getVoterCount, getParticipants, downloadExcelCsv, warnIfNotConfigured
 } from "./assets/app.js";
 
@@ -149,6 +149,7 @@ function panelAc() {
     location.reload();
   });
   secenekAlaniKur();
+  pastaEtkilesim($("#aktif"));
   tazele();
   listen("divan-polls", "polls", tazele);
   listen("divan-tally", "poll_tally", tazele);
@@ -261,7 +262,13 @@ async function tazele() {
 
 async function aktifCiz() {
   const kok = $("#aktif");
-  const poll = polls.find((x) => x.status === "open");
+  // Açık oylama yoksa en son kapananın sonucu gösterilmeye devam eder.
+  const acikPoll = polls.find((x) => x.status === "open");
+  const sonKapanan = polls
+    .filter((x) => x.status === "closed")
+    .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at))[0];
+  const poll = acikPoll ?? sonKapanan;
+  const acik = !!acikPoll;
 
   if (!poll) {
     kok.innerHTML = `<div class="note">Şu anda açık oylama yok. Aşağıdan yeni bir oylama oluşturun
@@ -290,21 +297,18 @@ async function aktifCiz() {
   }
 
   kok.innerHTML = `
-    <div class="card" style="border-color:var(--gold)">
+    ${acik ? "" : `<div class="note" style="margin-bottom:12px">Şu anda açık oylama yok.
+                   Aşağıda son kapanan oylamanın kesin sonucu görünüyor.</div>`}
+    <div class="card" style="${acik ? "border-color:var(--gold)" : ""}">
       <div class="row" style="justify-content:space-between">
-        <span class="tag open">Açık</span>
+        ${acik ? '<span class="tag open">Açık</span>' : '<span class="tag closed">Kapandı</span>'}
         ${poll.secret ? '<span class="tag secret">Gizli oylama</span>' : ""}
       </div>
       <h1 style="margin-top:12px">${esc(poll.title)}</h1>
       ${poll.subtitle ? `<p class="sub">${esc(poll.subtitle)}</p>` : ""}
 
-      <div class="tally" style="margin-top:20px">
-        ${poll.options.map((o, i) => `
-          <div class="tally-row">
-            <div class="tally-head"><span>${esc(o)}</span>
-              <span class="n">${tally[i]} oy · %${pct(tally[i], toplam)}</span></div>
-            <div class="bar"><span style="width:${pct(tally[i], toplam)}%"></span></div>
-          </div>`).join("")}
+      <div style="margin-top:22px">
+        ${sonucHtml(poll.options, tally)}
       </div>
 
       <p class="muted" style="margin-top:14px">
@@ -313,13 +317,13 @@ async function aktifCiz() {
 
       <hr class="rule">
       <div class="row">
-        <button class="btn dark" id="btn-kapat">Oylamayı Kapat</button>
+        ${acik ? '<button class="btn dark" id="btn-kapat">Oylamayı Kapat</button>' : ""}
         <button class="btn ghost sm" id="btn-excel">Bu Oylamayı Excel'e Aktar</button>
       </div>
       ${kimNeVerdi}
     </div>`;
 
-  $("#btn-kapat").addEventListener("click", () => oylamaKapat(poll.id));
+  if (acik) $("#btn-kapat").addEventListener("click", () => oylamaKapat(poll.id));
   $("#btn-excel").addEventListener("click", () => pollExcel(poll));
 }
 

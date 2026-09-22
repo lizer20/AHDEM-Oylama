@@ -49,7 +49,7 @@
 <script type="module">
 import {
   sb, $, esc, ensureAnonSession, normalizeName, titleCase,
-  getActivePoll, getTally, getVoterCount, listen, pct, warnIfNotConfigured
+  getActivePoll, listen, warnIfNotConfigured
 } from "./assets/app.js";
 
 let me = null;        // voters satırım
@@ -70,8 +70,9 @@ async function baslat() {
 
   if (me) girisTamam();
 
+  // Telefonlar yalnızca oylamanın açılıp kapanmasını dinler, oy sayacını dinlemez.
+  // (Her oy 140 telefona ayrı mesaj olarak gitmediği için canlı mesaj kotası korunur.)
   listen("vekil-polls", "polls", tazele);
-  listen("vekil-tally", "poll_tally", tazele);
 }
 
 /* ---------- İsim girişi ---------- */
@@ -144,32 +145,10 @@ async function tazele() {
   ciz();
 }
 
-async function ciz() {
+// Sonuçlar vekil ekranında gösterilmez; yalnızca perdede ve divan panelinde görünür.
+function ciz() {
   const opts = poll.options;
   const verdim = myVote !== null;
-
-  let sonucHtml = "";
-  if (verdim) {
-    const tally = await getTally(poll.id, opts.length);
-    const toplam = tally.reduce((a, b) => a + b, 0);
-    const kayitli = await getVoterCount();
-    sonucHtml = `
-      <hr class="rule">
-      <h2>Canlı sonuç</h2>
-      <div class="tally">
-        ${opts.map((o, i) => `
-          <div class="tally-row">
-            <div class="tally-head">
-              <span>${esc(o)}</span>
-              <span class="n">${tally[i]} oy · %${pct(tally[i], toplam)}</span>
-            </div>
-            <div class="bar"><span style="width:${pct(tally[i], toplam)}%"></span></div>
-          </div>`).join("")}
-      </div>
-      <p class="muted" style="margin-top:14px">
-        ${toplam} / ${kayitli} vekil oy kullandı${poll.secret ? " · gizli oylama" : ""}
-      </p>`;
-  }
 
   viewOylama.innerHTML = `
     <p class="eyebrow">${poll.secret ? "Gizli oylama" : "Açık oylama"}</p>
@@ -186,11 +165,9 @@ async function ciz() {
 
     <div class="note ${verdim ? "ok" : ""}" style="margin-top:18px">
       ${verdim
-        ? "Oyunuz kaydedildi. Oylama kapanana kadar değiştirebilirsiniz."
+        ? "Oyunuz kaydedildi. Oylama kapanana kadar değiştirebilirsiniz. Sonuçları perdeden takip edebilirsiniz."
         : "Bir seçeneğe dokunarak oyunuzu kullanın."}
-    </div>
-
-    ${sonucHtml}`;
+    </div>`;
 
   viewOylama.querySelectorAll(".option").forEach((b) =>
     b.addEventListener("click", () => oyVer(Number(b.dataset.i)))

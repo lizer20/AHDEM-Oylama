@@ -305,3 +305,109 @@ body.screen {
   .wrap { padding: 22px 16px 56px; }
   .option { font-size: 1.05rem; padding: 18px; }
 }
+
+/* ============================================================
+   SONUÇ GRAFİĞİ (halka pasta)
+   Paletler renk körlüğü ve kontrast testinden geçmiştir
+   (2–5 seçeneğin her biri, pastanın son–ilk dilim komşuluğu dahil).
+   Sıra sabittir: 1. seçenek her zaman --s1 renginde çizilir.
+   ============================================================ */
+
+:root {
+  --s1: #B8862F;   /* altın     */
+  --s2: #2F6DB5;   /* mavi      */
+  --s3: #1E9E8A;   /* camgöbeği */
+  --s4: #B5473A;   /* kiremit   */
+  --s5: #7A5BC4;   /* mor       */
+  --viz-surface: #fff;
+  --viz-track: var(--paper-2);
+  --viz-ink: var(--ink);
+  --viz-muted: var(--muted);
+}
+
+body.screen {
+  --s1: #B8862F;
+  --s2: #4F8AE0;
+  --s3: #149575;
+  --s4: #D9596B;
+  --s5: #A07CDB;
+  --viz-surface: var(--ink);
+  --viz-track: rgba(250, 247, 241, .12);
+  --viz-ink: #fff;
+  --viz-muted: var(--gold-soft);
+}
+
+.pasta {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 440px);
+  gap: 28px;
+  align-items: center;
+}
+.pasta svg { width: 100%; height: auto; display: block; overflow: visible; }
+.pasta path.dilim { stroke: var(--viz-surface); stroke-width: 2; stroke-linejoin: round; }
+.pasta .dilim, .pasta li { transition: opacity .15s; }
+.pasta.odak .dilim:not(.aktif) { opacity: .3; }
+.pasta.odak li:not(.aktif) { opacity: .45; }
+
+.pasta .merkez-sayi {
+  font-family: Poppins, system-ui, sans-serif;
+  font-size: 34px;
+  font-weight: 600;
+  fill: var(--viz-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pasta .merkez-yazi {
+  font-family: Poppins, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: .08em;
+  fill: var(--viz-muted);
+}
+
+.lejant { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lejant li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto 52px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-2);
+  cursor: default;
+}
+.lejant li:last-child { border-bottom: 0; }
+.lejant .renk { width: 14px; height: 14px; border-radius: 3px; }
+.lejant .ad { font-weight: 500; }
+.lejant .sayi { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.lejant .yuzde { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; font-size: .9rem; }
+
+@media (max-width: 560px) {
+  .pasta { grid-template-columns: 1fr; }
+  .pasta svg { max-width: 220px; margin: 0 auto; }
+}
+
+/* --- yansıtma ekranında büyük boy --- */
+
+.screen .pasta {
+  grid-template-columns: min(52vh, 38vw) 1fr;
+  gap: 5vw;
+}
+.screen .lejant { gap: 0; }
+.screen .lejant li {
+  grid-template-columns: 1.7vw 1fr auto 6vw;
+  gap: 1.6vw;
+  padding: 2.2vh 0;
+  border-bottom-color: rgba(232, 213, 172, .18);
+}
+.screen .lejant .renk { width: 1.7vw; height: 1.7vw; border-radius: 4px; }
+.screen .lejant .ad { font-size: 2.3vw; }
+.screen .lejant .sayi { font-size: 3.2vw; color: #fff; }
+.screen .lejant .yuzde { font-size: 1.5vw; color: var(--gold-soft); }
+.screen .pasta.gizli .sayi { color: rgba(250, 247, 241, .3); }
+
+/* 4–5 seçenekte satırlar sıkışır ki alt şerit ekranın dışına itilmesin */
+.screen .pasta[data-n="4"] .lejant li,
+.screen .pasta[data-n="5"] .lejant li { padding: 1.1vh 0; }
+.screen .pasta[data-n="5"] .lejant .ad { font-size: min(2.3vw, 4.6vh); }
+.screen .pasta[data-n="5"] .lejant .sayi { font-size: min(3.2vw, 6vh); }
+
+/* Güvenlik ağı: içerik ne olursa olsun başlık ve alt şerit yerinde kalır */
+.screen .s-body { min-height: 0; overflow: hidden; }

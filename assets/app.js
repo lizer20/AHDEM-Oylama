@@ -189,3 +189,102 @@ export function warnIfNotConfigured() {
   document.body.prepend(div);
   return true;
 }
+
+/* ============================================================
+   Sonuç grafiği (halka pasta) — divan ve yansıtma ekranı
+   Renkler seçeneğin sırasına bağlıdır, oy sırasına değil: "Kabul"
+   her zaman aynı renktir. Paletler style.css'te (--s1 … --s5).
+   ============================================================ */
+
+/** Pasta en fazla bu kadar seçenekle çizilir; fazlasında çubuklara dönülür. */
+export const PASTA_MAX = 5;
+
+/**
+ * Seçeneklere göre sonuç görseli döner (HTML metni).
+ * gizli=true: dilimler ve sayılar gösterilmez, yalnızca toplam katılım.
+ */
+export function sonucHtml(options, tally, { gizli = false } = {}) {
+  return options.length <= PASTA_MAX
+    ? pastaHtml(options, tally, gizli)
+    : cubukHtml(options, tally, gizli);
+}
+
+function pastaHtml(options, tally, gizli) {
+  const toplam = tally.reduce((a, b) => a + b, 0);
+  const C = 100, R = 92, r = 58;          // merkez, dış ve iç yarıçap
+  const nokta = (yc, a) => `${(C + yc * Math.cos(a)).toFixed(2)} ${(C + yc * Math.sin(a)).toFixed(2)}`;
+  let dilimler = "";
+
+  if (!gizli && toplam > 0) {
+    let aci = -Math.PI / 2;               // saat 12'den başla
+    tally.forEach((n, i) => {
+      if (!n) return;
+      const baslik = `<title>${esc(options[i])}: ${n} oy (%${pct(n, toplam)})</title>`;
+      if (n === toplam) {                 // tek seçenek her şeyi aldıysa tam halka
+        dilimler += `<circle class="dilim" data-i="${i}" cx="${C}" cy="${C}" r="${(R + r) / 2}"
+                      fill="none" stroke="var(--s${i + 1})" stroke-width="${R - r}">${baslik}</circle>`;
+        return;
+      }
+      const a0 = aci, a1 = aci + (n / toplam) * 2 * Math.PI;
+      aci = a1;
+      const buyuk = a1 - a0 > Math.PI ? 1 : 0;
+      const d = `M ${nokta(R, a0)} A ${R} ${R} 0 ${buyuk} 1 ${nokta(R, a1)}
+                 L ${nokta(r, a1)} A ${r} ${r} 0 ${buyuk} 0 ${nokta(r, a0)} Z`;
+      dilimler += `<path class="dilim" data-i="${i}" d="${d}" fill="var(--s${i + 1})">${baslik}</path>`;
+    });
+  } else {
+    dilimler = `<circle cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none"
+                  stroke="var(--viz-track)" stroke-width="${R - r}"/>`;
+  }
+
+  const altYazi = gizli ? "oy kullanıldı" : toplam > 0 ? "toplam oy" : "henüz oy yok";
+
+  return `
+    <div class="pasta ${gizli ? "gizli" : ""}" data-n="${options.length}">
+      <svg viewBox="0 0 200 200" role="img" aria-label="Oylama sonucu grafiği">
+        ${dilimler}
+        <text x="${C}" y="${C + 4}" class="merkez-sayi" text-anchor="middle">${toplam}</text>
+        <text x="${C}" y="${C + 24}" class="merkez-yazi" text-anchor="middle">${altYazi}</text>
+      </svg>
+      <ul class="lejant">
+        ${options.map((o, i) => `
+          <li data-i="${i}">
+            <span class="renk" style="background:var(--s${i + 1})"></span>
+            <span class="ad">${esc(o)}</span>
+            <span class="sayi">${gizli ? "—" : tally[i]}</span>
+            <span class="yuzde">${gizli ? "" : "%" + pct(tally[i], toplam)}</span>
+          </li>`).join("")}
+      </ul>
+    </div>`;
+}
+
+function cubukHtml(options, tally, gizli) {
+  const toplam = tally.reduce((a, b) => a + b, 0);
+  return `
+    <div class="tally">
+      ${options.map((o, i) => `
+        <div class="tally-row">
+          <div class="tally-head">
+            <span>${esc(o)}</span>
+            <span class="n">${gizli ? "—" : `${tally[i]} oy · %${pct(tally[i], toplam)}`}</span>
+          </div>
+          <div class="bar"><span style="width:${gizli ? 0 : pct(tally[i], toplam)}%"></span></div>
+        </div>`).join("")}
+    </div>`;
+}
+
+/** Dilim ile lejant satırını birbirine bağlar: biri üzerine gelince ikisi de öne çıkar. */
+export function pastaEtkilesim(kok) {
+  const isaretle = (i) => {
+    kok.querySelectorAll(".pasta").forEach((p) => {
+      p.classList.toggle("odak", i !== null);
+      p.querySelectorAll("[data-i]").forEach((el) =>
+        el.classList.toggle("aktif", el.dataset.i === i));
+    });
+  };
+  kok.addEventListener("mouseover", (e) => {
+    const el = e.target.closest(".pasta [data-i]");
+    isaretle(el ? el.dataset.i : null);
+  });
+  kok.addEventListener("mouseleave", () => isaretle(null));
+}

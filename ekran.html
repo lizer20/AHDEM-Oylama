@@ -18,7 +18,7 @@
 <script type="module">
 import {
   CONFIG, $, esc, ensureAnonSession, getActivePoll, getLastClosedPoll,
-  getTally, getVoterCount, listen, pct, warnIfNotConfigured
+  getTally, getVoterCount, listen, sonucHtml, warnIfNotConfigured
 } from "./assets/app.js";
 
 const kok = $("#ekran");
@@ -74,9 +74,6 @@ async function ciz() {
 
   // Gizli oylama sürerken sayılar perdede gizlenir, kapanınca açılır.
   const gizle = poll.secret && acik;
-  const say = (n) => (gizle ? "—" : n);
-  const yuzde = (n) => (gizle ? "" : "%" + pct(n, toplam));
-  const genislik = (n) => (gizle ? 0 : pct(n, toplam));
 
   bas(`
     <div class="s-title">
@@ -87,16 +84,8 @@ async function ciz() {
       ${poll.subtitle ? `<p class="sub">${esc(poll.subtitle)}</p>` : ""}
     </div>
 
-    <div class="s-body ${gizle ? "masked" : ""}">
-      ${opts.map((o, i) => `
-        <div class="s-opt">
-          <div class="top">
-            <span class="name">${esc(o)}</span>
-            <span class="cnt">${say(tally[i])}</span>
-            <span class="pct">${yuzde(tally[i])}</span>
-          </div>
-          <div class="bar"><span style="width:${genislik(tally[i])}%"></span></div>
-        </div>`).join("")}
+    <div class="s-body">
+      ${sonucHtml(opts, tally, { gizli: gizle })}
     </div>
 
     <div class="s-foot">
